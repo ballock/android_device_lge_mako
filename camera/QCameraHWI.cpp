@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2011-2012 The Linux Foundation. All rights reserved.
+** Copyright (c) 2011-2012,2015 The Linux Foundation. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -176,7 +176,6 @@ QCameraHardwareInterface(int cameraId, int mode)
                     mSnapshotFormat(0),
                     mStartRecording(0),
                     mZslInterval(1),
-                    mNoDisplayMode(0),
                     mBrightness(0),
                     mContrast(0),
                     mEffects(0),
@@ -1031,7 +1030,7 @@ status_t QCameraHardwareInterface::startPreview()
         ALOGV("%s:  HAL::startPreview begin", __func__);
 
         if(QCAMERA_HAL_PREVIEW_START == mPreviewState &&
-           (mPreviewWindow || isNoDisplayMode())) {
+           (mPreviewWindow)) {
             ALOGD("%s:  start preview now", __func__);
             retVal = startPreview2();
             if(retVal == NO_ERROR)
@@ -1888,6 +1887,8 @@ status_t QCameraHardwareInterface::autoFocus()
     bool status = true;
     isp3a_af_mode_t afMode = getAutoFocusMode(mParameters);
 
+    Mutex::Autolock afLock(mAutofocusLock);
+
     if(mAutoFocusRunning==true){
       ALOGV("%s:AF already running should not have got this call",__func__);
       return NO_ERROR;
@@ -1933,6 +1934,7 @@ status_t QCameraHardwareInterface::cancelAutoFocus()
 
     mAutofocusLock.lock();
     if(mAutoFocusRunning || mNeedToUnlockCaf) {
+      ALOGV("%s:Af either running or CAF needs unlocking", __func__);
       mNeedToUnlockCaf = false;
       mAutoFocusRunning = false;
       mAutofocusLock.unlock();
@@ -2347,7 +2349,7 @@ int QCameraHardwareInterface::allocate_ion_memory(QCameraHalHeap_t *p_camera_mem
   p_camera_memory->alloc[cnt].len = (p_camera_memory->alloc[cnt].len + 4095) & (~4095);
   p_camera_memory->alloc[cnt].align = 4096;
   p_camera_memory->alloc[cnt].flags = ION_FLAG_CACHED;
-  p_camera_memory->alloc[cnt].heap_mask = ion_type;
+  p_camera_memory->alloc[cnt].heap_id_mask = ion_type;
 
   rc = ioctl(p_camera_memory->main_ion_fd[cnt], ION_IOC_ALLOC, &p_camera_memory->alloc[cnt]);
   if (rc < 0) {
@@ -2404,7 +2406,7 @@ int QCameraHardwareInterface::allocate_ion_memory(QCameraStatHeap_t *p_camera_me
   p_camera_memory->alloc[cnt].len = (p_camera_memory->alloc[cnt].len + 4095) & (~4095);
   p_camera_memory->alloc[cnt].align = 4096;
   p_camera_memory->alloc[cnt].flags = ION_FLAG_CACHED;
-  p_camera_memory->alloc[cnt].heap_mask = (0x1 << ion_type | 0x1 << ION_IOMMU_HEAP_ID);
+  p_camera_memory->alloc[cnt].heap_id_mask = (0x1 << ion_type | 0x1 << ION_IOMMU_HEAP_ID);
 
   rc = ioctl(p_camera_memory->main_ion_fd[cnt], ION_IOC_ALLOC, &p_camera_memory->alloc[cnt]);
   if (rc < 0) {
@@ -2672,11 +2674,6 @@ void QCameraHardwareInterface::takePicturePrepareHardware()
                   MM_CAMERA_OPS_PREPARE_SNAPSHOT,
                   this);
     ALOGV("%s: X", __func__);
-}
-
-bool QCameraHardwareInterface::isNoDisplayMode()
-{
-  return (mNoDisplayMode != 0);
 }
 
 void QCameraHardwareInterface::pausePreviewForZSL()

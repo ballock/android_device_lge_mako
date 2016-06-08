@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2011-2012 The Linux Foundation. All rights reserved.
+** Copyright (c) 2011-2012, 2015, The Linux Foundation. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -35,7 +35,6 @@
 #include <QComOMXMetadata.h>
 
 extern "C" {
-#include <linux/android_pmem.h>
 #include <linux/msm_ion.h>
 #include <mm_camera_interface2.h>
 #include "mm_omx_jpeg_encoder.h"
@@ -202,7 +201,7 @@ static const char ExifAsciiPrefix[] = { 0x41, 0x53, 0x43, 0x49, 0x49, 0x0, 0x0, 
 static const char ExifUndefinedPrefix[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };   // "\0\0\0\0\0\0\0\0"
 
 //EXIF detfines
-#define MAX_EXIF_TABLE_ENTRIES           20
+#define MAX_EXIF_TABLE_ENTRIES           23
 #define GPS_PROCESSING_METHOD_SIZE       101
 #define FOCAL_LENGTH_DECIMAL_PRECISION   100
 #define EXIF_ASCII_PREFIX_SIZE           8   //(sizeof(ExifAsciiPrefix))
@@ -220,6 +219,7 @@ typedef struct{
     char        gpsProcessingMethod[EXIF_ASCII_PREFIX_SIZE+GPS_PROCESSING_METHOD_SIZE];
     //Other tags
     char        dateTime[20];
+    char subsecTime[7];
     rat_t       focalLength;
     rat_t       f_number;
     uint16_t    flashMode;
@@ -234,6 +234,9 @@ typedef struct{
 
     int         mAltitude_ref;
     long        mGPSTimestamp;
+    int         mWbMode;
+    char        make[20];
+    char        model[20];
 
 } exif_values_t;
 
@@ -450,7 +453,6 @@ public:
     void processEvent(mm_camera_event_t *);
     int  getJpegQuality() const;
     int  getNumOfSnapshots(void) const;
-    int  getNumOfSnapshots(const QCameraParameters& params);
     int  getThumbSizesFromAspectRatio(uint32_t aspect_ratio,
                                      int *picture_width,
                                      int *picture_height);
@@ -490,7 +492,6 @@ public:
       char* ext, int index);
     preview_format_info_t getPreviewFormatInfo( );
     bool isCameraReady();
-    bool isNoDisplayMode();
 
 private:
     int16_t  zoomRatios[MAX_ZOOM_RATIOS];
@@ -576,7 +577,7 @@ private:
     status_t setVideoSize(const QCameraParameters& params);
     status_t setPictureSize(const QCameraParameters& params);
     status_t setJpegQuality(const QCameraParameters& params);
-    status_t setNumOfSnapshot(const QCameraParameters& params);
+    status_t setNumOfSnapshot();
     status_t setJpegRotation(int isZSL);
     int getJpegRotation(void);
     int getISOSpeedValue();
